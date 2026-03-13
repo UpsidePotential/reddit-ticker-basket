@@ -44,9 +44,10 @@ def cmd_backfill(args: argparse.Namespace) -> None:
 
 
 def cmd_weekly(args: argparse.Namespace) -> None:
-    """Fetch the current rolling 7-day window via Pullpush.io and save snapshot."""
+    """Fetch the current rolling 7-day window using a multi-source fallback strategy."""
     import time
     from fetcher.pullpush import fetch_week_texts
+    from fetcher.reddit_json import fetch_weekly as fetch_reddit_json
     from portfolio import generate_and_save
     from ranker import rank_tickers
 
@@ -54,9 +55,29 @@ def cmd_weekly(args: argparse.Namespace) -> None:
     logger.info("Fetching weekly data for subreddits: %s", SUBREDDITS)
 
     now = int(time.time())
-    start_epoch = now - 7 * 24 * 3600
+    start_7d = now - 7 * 24 * 3600
 
-    all_texts = fetch_week_texts(SUBREDDITS, start_epoch, now)
+    # Strategy 1: Try Pullpush.io for last 7 days
+    logger.info("Trying Pullpush.io for last 7 days...")
+    all_texts = fetch_week_texts(SUBREDDITS, start_7d, now)
+
+    # Strategy 2: If no data, try old.reddit.com JSON API
+    if not all_texts:
+        logger.info("Pullpush.io returned no data. Trying old.reddit.com...")
+        all_texts = fetch_reddit_json(SUBREDDITS)
+
+    # Strategy 3: If still no data, try Pullpush.io with wider windows
+    if not all_texts:
+        for days in [14, 21, 30]:
+            logger.info("Trying Pullpush.io with %d-day window...", days)
+            start = now - days * 24 * 3600
+            all_texts = fetch_week_texts(SUBREDDITS, start, now)
+            if all_texts:
+                break
+
+    if not all_texts:
+        logger.warning("No data found from any source. Saving empty snapshot.")
+        # Continue to generate and save an empty snapshot so the history record exists
 
     logger.info("Total texts collected: %d", len(all_texts))
     ranked = rank_tickers(all_texts)
