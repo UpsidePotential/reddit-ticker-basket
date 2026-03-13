@@ -18,7 +18,10 @@ logger = logging.getLogger(__name__)
 
 def _get(url: str, params: dict | None = None, retries: int = 3) -> dict | None:
     """Make a GET request with retries and exponential backoff."""
-    headers = {"User-Agent": USER_AGENT}
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/json",
+    }
     for attempt in range(retries):
         try:
             resp = requests.get(url, params=params, headers=headers, timeout=15)
@@ -146,3 +149,19 @@ def fetch_subreddit_week(subreddit: str) -> list[str]:
 
     logger.info("Total texts from r/%s: %d", subreddit, len(texts))
     return texts
+
+
+def fetch_weekly(subreddits: list[str]) -> list[str]:
+    """
+    Fetch rolling 7-day posts and comments for a list of subreddits via old.reddit.com.
+
+    Returns a combined list of text strings (titles, selftexts, comment bodies).
+    """
+    all_texts: list[str] = []
+    for subreddit in subreddits:
+        try:
+            texts = fetch_subreddit_week(subreddit)
+            all_texts.extend(texts)
+        except Exception as exc:
+            logger.warning("Failed to fetch r/%s from old.reddit.com: %s", subreddit, exc)
+    return all_texts
