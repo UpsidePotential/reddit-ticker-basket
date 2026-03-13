@@ -44,18 +44,19 @@ def cmd_backfill(args: argparse.Namespace) -> None:
 
 
 def cmd_weekly(args: argparse.Namespace) -> None:
-    """Fetch the current week's data from Reddit .json API and save snapshot."""
-    from fetcher.reddit_json import fetch_subreddit_week
+    """Fetch the current rolling 7-day window via Pullpush.io and save snapshot."""
+    import time
+    from fetcher.pullpush import fetch_week_texts
     from portfolio import generate_and_save
     from ranker import rank_tickers
 
     logger = logging.getLogger(__name__)
     logger.info("Fetching weekly data for subreddits: %s", SUBREDDITS)
 
-    all_texts = []
-    for sub in SUBREDDITS:
-        texts = fetch_subreddit_week(sub)
-        all_texts.extend(texts)
+    now = int(time.time())
+    start_epoch = now - 7 * 24 * 3600
+
+    all_texts = fetch_week_texts(SUBREDDITS, start_epoch, now)
 
     logger.info("Total texts collected: %d", len(all_texts))
     ranked = rank_tickers(all_texts)
