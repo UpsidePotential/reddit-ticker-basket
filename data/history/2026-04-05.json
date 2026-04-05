@@ -1,0 +1,13 @@
+{
+  "date": "2026-04-05",
+  "subreddits": [
+    "stocks",
+    "ValueInvesting"
+  ],
+  "basket": [],
+  "rebalance": {
+    "buy": [],
+    "sell": [],
+    "hold": []
+  }
+}
